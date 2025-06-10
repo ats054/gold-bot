@@ -21,7 +21,7 @@ app = Flask(__name__)
 
 BOT_TOKEN = "7921226841:AAFt6Gv2XdUg4tXsid9g70A_7-p-uv7OHO0"
 CHAT_ID = 683024750
-PLUS500_FACTOR = 20
+PLUS500_FACTOR = 27
 INVESTMENT_USD = 1000  # סכום השקעה קבוע
 
 def send_telegram_message(text):

@@ -5,22 +5,24 @@ try:
     import yfinance
     import requests
     import ta
+    from flask import Flask
 except ImportError:
-    os.system("pip install yfinance pandas requests ta")
+    os.system("pip install yfinance pandas requests ta flask")
 
 from datetime import datetime
 import pandas as pd
 import yfinance as yf
 import ta
 import requests
+import threading
 import time
+from flask import Flask
 
-# הגדרת פקטור התאמה ל-Plus500 (ניתן לשנות בקלות)
-PLUS500_FACTOR = 20
+app = Flask(__name__)
 
-# פרטי הבוט שלך
 BOT_TOKEN = "7921226841:AAFt6Gv2XdUg4tXsid9g70A_7-p-uv7OHO0"
 CHAT_ID = 683024750
+PLUS500_FACTOR = 20
 
 def send_telegram_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -44,7 +46,6 @@ def get_indicators(data):
     data['MACD'] = macd_ind.macd()
     data['MACD_signal'] = macd_ind.macd_signal()
     data['lower_band'] = bollinger.bollinger_lband()
-
     return data
 
 def analyze_gold():
@@ -62,7 +63,6 @@ def analyze_gold():
     data_1m = get_indicators(data_1m)
     data_5m = get_indicators(data_5m)
 
-    # נתונים מטווח 1 דקה
     price_1m = float(data_1m['Close'].iloc[-1])
     adjusted_price = round(price_1m - PLUS500_FACTOR, 2)
     rsi_1m = round(data_1m['RSI'].iloc[-1], 2)
@@ -70,7 +70,6 @@ def analyze_gold():
     signal_1m = round(data_1m['MACD_signal'].iloc[-1], 2)
     boll_1m = round(data_1m['lower_band'].iloc[-1], 2)
 
-    # נתונים מטווח 5 דקות
     rsi_5m = round(data_5m['RSI'].iloc[-1], 2)
     macd_5m = round(data_5m['MACD'].iloc[-1], 2)
     signal_5m = round(data_5m['MACD_signal'].iloc[-1], 2)
@@ -96,8 +95,23 @@ def analyze_gold():
         )
         send_telegram_message(text)
 
-send_test_message()
+def run_bot_loop():
+    send_test_message()
+    while True:
+        analyze_gold()
+        time.sleep(60)
 
-while True:
-    analyze_gold()
-    time.sleep(60)
+@app.route('/')
+def home():
+    return "✅ Gold Bot is running."
+
+@app.route('/status')
+def status():
+    return "Bot OK ✅"
+
+# נריץ את הלולאה ברקע
+threading.Thread(target=run_bot_loop).start()
+
+# נריץ את ה-Flask
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))

@@ -1,7 +1,8 @@
 services:
-  - type: worker
-    name: gold-bot
+  - type: web
+    name: gold-bot-flask
     env: python
     plan: free
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python main.py"
+    autoDeploy: true

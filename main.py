@@ -1,4 +1,3 @@
-
 import os
 try:
     import pandas
@@ -23,6 +22,7 @@ app = Flask(__name__)
 BOT_TOKEN = "7921226841:AAFt6Gv2XdUg4tXsid9g70A_7-p-uv7OHO0"
 CHAT_ID = 683024750
 PLUS500_FACTOR = 20
+INVESTMENT_USD = 1000  # סכום השקעה קבוע
 
 def send_telegram_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -32,86 +32,62 @@ def send_telegram_message(text):
     except Exception as e:
         print("שגיאה בשליחת הודעה:", e)
 
-def send_test_message():
-    text = "🔔 בדיקת תקשורת: הבוט מחובר בהצלחה לטלגרם!"
-    send_telegram_message(text)
-
-def get_indicators(data):
-    data.dropna(inplace=True)
-    rsi = ta.momentum.RSIIndicator(close=data['Close'].squeeze(), window=14).rsi()
-    macd_ind = ta.trend.MACD(close=data['Close'].squeeze())
-    bollinger = ta.volatility.BollingerBands(close=data['Close'].squeeze())
-
-    data['RSI'] = rsi
-    data['MACD'] = macd_ind.macd()
-    data['MACD_signal'] = macd_ind.macd_signal()
-    data['lower_band'] = bollinger.bollinger_lband()
-    return data
-
 def analyze_gold():
     try:
-        data_1m = yf.download(tickers="GC=F", interval="1m", period="1d")
-        data_5m = yf.download(tickers="GC=F", interval="5m", period="1d")
+        data = yf.download(tickers="GC=F", interval="1m", period="1d")
     except Exception as e:
         print("שגיאה בשליפת נתונים:", e)
         return
 
-    if data_1m.empty or data_5m.empty:
+    if data.empty:
         print("אין נתונים זמינים")
         return
 
-    data_1m = get_indicators(data_1m)
-    data_5m = get_indicators(data_5m)
+    data = ta.add_all_ta_features(data, open="Open", high="High", low="Low", close="Close", volume="Volume")
 
-    price_1m = float(data_1m['Close'].iloc[-1])
-    adjusted_price = round(price_1m - PLUS500_FACTOR, 2)
-    rsi_1m = round(data_1m['RSI'].iloc[-1], 2)
-    macd_1m = round(data_1m['MACD'].iloc[-1], 2)
-    signal_1m = round(data_1m['MACD_signal'].iloc[-1], 2)
-    boll_1m = round(data_1m['lower_band'].iloc[-1], 2)
+    last = data.iloc[-1]
+    price = float(last['Close'])
+    plus500_price = round(price - PLUS500_FACTOR, 2)
 
-    rsi_5m = round(data_5m['RSI'].iloc[-1], 2)
-    macd_5m = round(data_5m['MACD'].iloc[-1], 2)
-    signal_5m = round(data_5m['MACD_signal'].iloc[-1], 2)
+    rsi = last['momentum_rsi']
+    macd = last['trend_macd']
+    macd_signal = last['trend_macd_signal']
+    lower_band = last['volatility_bbm'] - 2 * last['volatility_bbw']
 
-    print(f"⏱️ {datetime.now().strftime('%H:%M:%S')} | מחיר Yahoo: {round(price_1m, 2)} | Plus500 (מותאם): {adjusted_price} | RSI(1ד'): {rsi_1m} | RSI(5ד'): {rsi_5m}")
+    # תנאים גמישים יחסית
+    if rsi < 40 and macd > macd_signal and price < lower_band:
+        quantity = round(INVESTMENT_USD / plus500_price, 2)
+        tp = round(plus500_price + 5, 2)
+        sl = round(plus500_price - 5, 2)
 
-    if (
-        rsi_1m < 30 and
-        macd_1m > signal_1m and
-        price_1m < boll_1m and
-        rsi_5m < 35 and
-        macd_5m > signal_5m
-    ):
         text = (
-            f"איתות כניסה בזהב! 🟢\n"
-            f"מחיר לפי Yahoo: {round(price_1m, 2)}\n"
-            f"התאמה ל-Plus500: ~{adjusted_price}\n"
-            f"RSI 1ד': {rsi_1m} | RSI 5ד': {rsi_5m}\n"
-            f"MACD 1ד': {macd_1m} > {signal_1m}\n"
-            f"MACD 5ד': {macd_5m} > {signal_5m}\n"
-            f"בולינגר תחתון (1ד'): {boll_1m}\n"
-            f"זמן: {datetime.now().strftime('%H:%M:%S')}"
+            f"📈 איתות קנייה בזהב!\n\n"
+            f"💰 מחיר כניסה: {round(price, 2)}\n"
+            f"💸 מחיר בפלוס500: {plus500_price}\n\n"
+            f"✅ המלצה: לקנות עכשיו\n"
+            f"📊 כמות מומלצת: {quantity} יחידות (1000$)\n"
+            f"🎯 יעד רווח: {tp}\n"
+            f"🛑 סטופ: {sl}\n\n"
+            f"⏱️ זמן: {datetime.now().strftime('%H:%M:%S')}"
         )
         send_telegram_message(text)
 
 def run_bot_loop():
-    send_test_message()
+    send_telegram_message("🤖 הבוט התחיל לפעול (גרסה פשוטה עם איתותים ברורים)")
     while True:
         analyze_gold()
         time.sleep(60)
 
 @app.route('/')
 def home():
-    return "✅ Gold Bot is running."
+    return "✅ Gold Bot is running (Simple Alerts)."
 
 @app.route('/status')
 def status():
     return "Bot OK ✅"
 
-# נריץ את הלולאה ברקע
 threading.Thread(target=run_bot_loop).start()
 
-# נריץ את ה-Flask
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+

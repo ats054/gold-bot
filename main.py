@@ -55,7 +55,7 @@ def analyze_gold():
     lower_band = last['volatility_bbm'] - 2 * last['volatility_bbw']
 
     # תנאים גמישים יחסית
-    if rsi < 50 and macd > macd_signal and price < lower_band:
+    if rsi < 55 and macd > macd_signal and price < lower_band:
         quantity = round(INVESTMENT_USD / plus500_price, 2)
         tp = round(plus500_price + 5, 2)
         sl = round(plus500_price - 5, 2)

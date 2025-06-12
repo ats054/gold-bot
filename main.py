@@ -52,10 +52,12 @@ def analyze_gold():
     rsi = last['momentum_rsi']
     macd = last['trend_macd']
     macd_signal = last['trend_macd_signal']
-    lower_band = last['volatility_bbm'] - 2 * last['volatility_bbw']
+    bbm = last['volatility_bbm']
+    bbw = last['volatility_bbw']
+    lower_band_flexible = bbm - bbw  # גמיש יותר מבולינגר קלאסי
 
-    # תנאים גמישים יחסית
-    if rsi < 55 and macd > macd_signal and price < lower_band:
+    # תנאים גמישים יותר
+    if rsi < 60 and (macd > macd_signal or macd > 0) and price < lower_band_flexible:
         quantity = round(INVESTMENT_USD / plus500_price, 2)
         tp = round(plus500_price + 5, 2)
         sl = round(plus500_price - 5, 2)
@@ -73,14 +75,14 @@ def analyze_gold():
         send_telegram_message(text)
 
 def run_bot_loop():
-    send_telegram_message("🤖 הבוט התחיל לפעול (גרסה פשוטה עם איתותים ברורים)")
+    send_telegram_message("🤖 הבוט התחיל לפעול (גרסה גמישה עם איתותים תכופים יותר)")
     while True:
         analyze_gold()
         time.sleep(60)
 
 @app.route('/')
 def home():
-    return "✅ Gold Bot is running (Simple Alerts)."
+    return "✅ Gold Bot is running (Flexible Alerts)."
 
 @app.route('/status')
 def status():
@@ -90,4 +92,3 @@ threading.Thread(target=run_bot_loop).start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
-

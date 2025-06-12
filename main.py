@@ -19,8 +19,11 @@ from flask import Flask
 
 app = Flask(__name__)
 
+# פרטי טלגרם
 BOT_TOKEN = "7921226841:AAFt6Gv2XdUg4tXsid9g70A_7-p-uv7OHO0"
 CHAT_ID = 683024750
+
+# התאמה למחיר Plus500
 PLUS500_FACTOR = 27
 INVESTMENT_USD = 1000  # סכום השקעה קבוע
 
@@ -32,6 +35,7 @@ def send_telegram_message(text):
     except Exception as e:
         print("שגיאה בשליחת הודעה:", e)
 
+# בדיקת תבנית Bullish Engulfing
 def is_bullish_engulfing(prev, curr):
     return (
         prev['Close'] < prev['Open'] and  # נר קודם אדום
@@ -40,6 +44,7 @@ def is_bullish_engulfing(prev, curr):
         curr['Close'] > prev['Open']
     )
 
+# ניתוח גרף זהב ובדיקת תנאים
 def analyze_gold():
     try:
         data = yf.download(tickers="GC=F", interval="1m", period="1d")
@@ -67,12 +72,15 @@ def analyze_gold():
 
     entry_reason = None
 
+    # תנאי כניסה לפי אינדיקטורים
     if rsi < 60 and (macd > macd_signal or macd > 0) and price < lower_band_flexible:
         entry_reason = "איתות לפי RSI, MACD ובולינגר"
 
+    # או לפי תבנית נר
     elif is_bullish_engulfing(prev, last):
         entry_reason = "תבנית Bullish Engulfing (נר ירוק חזק)"
 
+    # שליחת איתות אם יש סיבה
     if entry_reason:
         quantity = round(INVESTMENT_USD / plus500_price, 2)
         tp = round(plus500_price + 5, 2)
@@ -91,12 +99,14 @@ def analyze_gold():
         )
         send_telegram_message(text)
 
+# לולאת ריצה של הבוט
 def run_bot_loop():
     send_telegram_message("🤖 הבוט התחיל לפעול (איתותים גמישים + תבנית נר)")
     while True:
         analyze_gold()
         time.sleep(60)
 
+# מסלולים לווב
 @app.route('/')
 def home():
     return "✅ Gold Bot is running (Flexible Alerts + Candlestick)."
@@ -105,7 +115,9 @@ def home():
 def status():
     return "Bot OK ✅"
 
+# הפעלת הלולאה ברקע
 threading.Thread(target=run_bot_loop).start()
 
+# הרצת האפליקציה
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))

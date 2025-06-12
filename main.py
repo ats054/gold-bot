@@ -32,6 +32,14 @@ def send_telegram_message(text):
     except Exception as e:
         print("שגיאה בשליחת הודעה:", e)
 
+def is_bullish_engulfing(prev, curr):
+    return (
+        prev['Close'] < prev['Open'] and  # נר קודם אדום
+        curr['Close'] > curr['Open'] and  # נר נוכחי ירוק
+        curr['Open'] < prev['Close'] and
+        curr['Close'] > prev['Open']
+    )
+
 def analyze_gold():
     try:
         data = yf.download(tickers="GC=F", interval="1m", period="1d")
@@ -46,6 +54,7 @@ def analyze_gold():
     data = ta.add_all_ta_features(data, open="Open", high="High", low="Low", close="Close", volume="Volume")
 
     last = data.iloc[-1]
+    prev = data.iloc[-2]
     price = float(last['Close'])
     plus500_price = round(price - PLUS500_FACTOR, 2)
 
@@ -56,8 +65,15 @@ def analyze_gold():
     bbw = last['volatility_bbw']
     lower_band_flexible = bbm - bbw  # גמיש יותר מבולינגר קלאסי
 
-    # תנאים גמישים יותר
+    entry_reason = None
+
     if rsi < 60 and (macd > macd_signal or macd > 0) and price < lower_band_flexible:
+        entry_reason = "איתות לפי RSI, MACD ובולינגר"
+
+    elif is_bullish_engulfing(prev, last):
+        entry_reason = "תבנית Bullish Engulfing (נר ירוק חזק)"
+
+    if entry_reason:
         quantity = round(INVESTMENT_USD / plus500_price, 2)
         tp = round(plus500_price + 5, 2)
         sl = round(plus500_price - 5, 2)
@@ -70,19 +86,20 @@ def analyze_gold():
             f"📊 כמות מומלצת: {quantity} יחידות (1000$)\n"
             f"🎯 יעד רווח: {tp}\n"
             f"🛑 סטופ: {sl}\n\n"
+            f"📌 סיבה: {entry_reason}\n"
             f"⏱️ זמן: {datetime.now().strftime('%H:%M:%S')}"
         )
         send_telegram_message(text)
 
 def run_bot_loop():
-    send_telegram_message("🤖 הבוט התחיל לפעול (גרסה גמישה עם איתותים תכופים יותר)")
+    send_telegram_message("🤖 הבוט התחיל לפעול (איתותים גמישים + תבנית נר)")
     while True:
         analyze_gold()
         time.sleep(60)
 
 @app.route('/')
 def home():
-    return "✅ Gold Bot is running (Flexible Alerts)."
+    return "✅ Gold Bot is running (Flexible Alerts + Candlestick)."
 
 @app.route('/status')
 def status():
